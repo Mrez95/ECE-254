@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
     int id = atoi(argv[2]);
 
 	// initialize a blocking queue
-	attr.mq_maxmsg = B;
+	attr.mq_maxmsg = id;
 	attr.mq_msgsize = sizeof(int);
 	attr.mq_flags = 0;
 
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
 	// continously loop to consume until no more items to be expected
 	for(;;) {
-		
+
 		// exit loop if and only if all callers stopped consuming
 		// ie. semaphore counter reaches 0
 		if (sem_trywait(c_semaphore) == -1) {
@@ -71,8 +71,8 @@ int main(int argc, char *argv[])
 		int isReceived = mq_receive(qdes, (char*) &msg, sizeof(int), 0);
 		if (isReceived){
 			// find perfect square
-			if ((sqrt(msg)*sqrt(msg)) == msg){
-				printf("%i %i %i\n", id, msg, sqrt(msg));
+			if (((int)sqrt(msg) * (int)sqrt(msg)) == msg){
+				printf("%i %i %i\n", id, msg, (int)sqrt(msg));
 			}
 		}
 		else 
