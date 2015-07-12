@@ -7,6 +7,9 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <mqueue.h>
+
 const char* qname = "/mailbox_t94zhang";
 
 int pid, P, N;
@@ -20,6 +23,30 @@ int main(int argc,  char *argv[]){
     if (argc != 5) {
         exit(1);
     }
-    pid = atoi(argv[1]);
-    P = 
+    N = atoi(argv[1]);
+    pid = argv[2];
+    P = argv[3];
+    
+    // From lab 4 - opens queue and creates messages
+    mqd_t qdes = mq_open(qname, O_RDWR); // Queue already created in processes_main.c
+    
+    // check if queue was opened successfully
+    if (qdes == -1 ) {
+        perror("mq_open()");
+        exit(1);
+    }
+
+    int i;
+    for (i = 0; i < N; i++) {
+        int message = (i * P) + pid; // Requirement: message / P = pid
+        if (mq_send(qdes, (char*) &message, sizeof(int), 0) == -1) {
+            perror("mq_send() failed");
+        }
+    }
+    
+    // Close the queue
+    if (mq_close(qdes) == -1) {
+        perror("mq_close() failed");
+        exit(2);
+    }
 }
