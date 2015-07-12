@@ -23,7 +23,7 @@ const char* qname = "/mailbox_t94zhang";
 
 int main(int argc, char *argv[])
 {
-    // format should be ./processes_main <N> <B> <P> <C>
+    // format should be ./produce <N> <B> <P> <C>
     if (argc != 5) {
         exit(1);
     }
