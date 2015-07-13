@@ -1,5 +1,5 @@
 /*
- * processes_main.c
+ * producer.c
  * ECE254 Group 34
  * By: Tianyi Zhang and Kwok Yin Timothy Tong
  * University of Waterloo Computer Engineering
@@ -12,20 +12,20 @@
 
 const char* qname = "/mailbox_t94zhang";
 
-int pid, P, N;
-/*
- pid = process id assigned to producer
- P = number of producers in total
- N = number of numbers produced in a set
- */
-
 int main(int argc,  char *argv[]){
     if (argc != 5) {
         exit(1);
     }
-    N = atoi(argv[1]);
-    pid = argv[2];
-    P = argv[3];
+
+    /*
+    pid = process id assigned to producer
+    P = number of producers in total
+    N = number of numbers produced in a set
+    */
+
+    int N = atoi(argv[1]);
+    int pid = atoi(argv[2]);
+    int P = atoi(argv[3]);
     
     // From lab 4 - opens queue and creates messages
     mqd_t qdes = mq_open(qname, O_RDWR); // Queue already created in processes_main.c
@@ -49,4 +49,7 @@ int main(int argc,  char *argv[]){
         perror("mq_close() failed");
         exit(2);
     }
+
+    return 0;
+
 }
