@@ -19,11 +19,12 @@
 #include <semaphore.h>
 
 const char* qname = "/mailbox_t94zhang";
-const char* scname = "sem_consumer"; 
+const char* scname = "sem_consumer_t94zhang"; 
 
 int main(int argc, char *argv[])
 {	
-	// format should be ./consumer <N> <B> <P> <C>
+	// format should be ./produce <N> <B> <P> <C>
+    // ie. early return for invalid input
 	if ( argc != 5 ) {
 		exit(1);
 	}
@@ -33,7 +34,8 @@ int main(int argc, char *argv[])
 	struct mq_attr attr; // queue attributes
 
     // unique id assigned for this consumer
-    int id = atoi(argv[2]);
+    // argv[2] is a char pointer
+    int id = *argv[2];
 
 	// initialize a blocking queue
 	attr.mq_maxmsg = id;

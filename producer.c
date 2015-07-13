@@ -13,22 +13,23 @@
 const char* qname = "/mailbox_t94zhang";
 
 int main(int argc,  char *argv[]){
+
+    // format should be ./produce <N> <B> <P> <C>
+    // ie. early return for invalid input
     if (argc != 5) {
         exit(1);
     }
 
-    /*
-    pid = process id assigned to producer
-    P = number of producers in total
-    N = number of numbers produced in a set
-    */
-
+    // number of numbers produced in a set
     int N = atoi(argv[1]);
+    // process id assigned to producer
     int pid = atoi(argv[2]);
+    // number of producers in total
     int P = atoi(argv[3]);
     
     // From lab 4 - opens queue and creates messages
-    mqd_t qdes = mq_open(qname, O_RDWR); // Queue already created in processes_main.c
+    // Queue already created in processes_main.c
+    mqd_t qdes = mq_open(qname, O_RDWR); 
     
     // check if queue was opened successfully
     if (qdes == -1 ) {
@@ -36,15 +37,21 @@ int main(int argc,  char *argv[]){
         exit(1);
     }
 
+    // loop to generate N producers
     int i;
     for (i = 0; i < N; i++) {
-        int message = (i * P) + pid; // Requirement: message / P = pid
+        // Requirement: message / P = pid
+        int message = (i * P) + pid;
+
+        // check if mq_send() succeeded
         if (mq_send(qdes, (char*) &message, sizeof(int), 0) == -1) {
             perror("mq_send() failed");
         }
     }
     
-    // Close the queue
+    // *****************************************
+    // final checks and cleaning up 
+    // *****************************************
     if (mq_close(qdes) == -1) {
         perror("mq_close() failed");
         exit(2);

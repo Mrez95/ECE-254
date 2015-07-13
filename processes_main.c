@@ -1,6 +1,7 @@
 /*
  * processes_main.c
  * ECE254 Group 34
+ *
  * By: Tianyi Zhang and Kwok Yin Timothy Tong
  * University of Waterloo Computer Engineering
  * Fall 2015
@@ -15,15 +16,18 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <time.h>
+#include <semaphore.h>
 
 double get_time();
 
 //constant queue_name for both producer and consumer.
 const char* qname = "/mailbox_t94zhang";
+const char* scname = "sem_consumer_t94zhang"; 
 
 int main(int argc, char *argv[])
 {
     // format should be ./produce <N> <B> <P> <C>
+    // ie. early return for invalid input
     if (argc != 5) {
         exit(1);
     }
@@ -35,7 +39,7 @@ int main(int argc, char *argv[])
     // number of producers
     int P = atoi(argv[3]);
     // number of consumers
-    int c = atoi(argv[4]);
+    int C = atoi(argv[4]);
     
     // check for incorrect parameters
     if (N < 1 || B < 1 || P < 1 || C < 1){
@@ -51,7 +55,9 @@ int main(int argc, char *argv[])
     attr.mq_msgsize = sizeof(int);
     attr.mq_flags = 0;
     
+    // ********************************************
     // open up the queue
+    // ********************************************
     qdes = mq_open(qname, O_RDWR | O_CREAT, mode,
                    &attr);
     
@@ -60,22 +66,40 @@ int main(int argc, char *argv[])
         perror("mq_open()");
         exit(1);
     }
+
+    // ********************************************
+    // open up the semaphore
+    // ********************************************
+    sem_t *sem;
+    sem = sem_open(scname, O_RDWR | O_CREAT,
+            mode, N);
     
-    // get time BEFORE program gets run
+    // check if semaphore was opened successfully
+    if (sem == SEM_FAILED ) {
+        perror("sem_open()");
+        exit(1);
+    }
+    
+    // start tracking execution time
     double t_before_fork = get_time();
-    int p, c;
-    pid_t pid_child;  // Might want to move this into loop
-    
-    
-    /******************************
-     ** SPAWN PRODUCER PROCESSES **
-     ******************************/
+
+    pid_t pid_child;
+    int p,c;
+
+    // *******************************************
+    // spawn producer processes 
+    // *******************************************
     argv[0] = "producer";
     
-    // loop that spawns P producer processes
+    // loop to generate P producer processes 
     for (p = 0; p < P; p++){
         
-        argv[2] = (char)p; // unique identity number
+        // properly cast int to char by pointers
+        // note: in C int is recognized as char
+        char* producer_id = (char*)&p;
+
+        // assign unique producer id
+        argv[2] = producer_id;
         
         pid_child = fork();
         
@@ -90,18 +114,24 @@ int main(int argc, char *argv[])
     }
     
     
-    /******************************
-     ** SPAWN CONSUMER PROCESSES **
-     ******************************/
+    // *******************************************
+    // spawn consumer processes 
+    // *******************************************
     
     argv[0] = "consumer";
     
-    // loop that spawns C consumer processes
+    // loop to generate C consumer processes 
     for (c = 0; c < C; c++){
         
-        argv[2] = (char)c; // unique identity number
-        
+        // properly cast int to char by pointers
+        // note: in C int is recognized as char
+        char* consumer_id = (char*)&c;
+
+        // assign unique consumer id
+        argv[2] = consumer_id;
+
         pid_child = fork();
+
         // check if forking was successful
         if (pid_child < 0){
             perror("fork()");
@@ -112,25 +142,30 @@ int main(int argc, char *argv[])
         }
     }
     
+    // *****************************************
+    // output timing results and data 
+    // *****************************************
     
-    /***************************************
-     ** OBTAINING RESULTS AND CLEANING UP **
-     ***************************************/
-    
-    // wait for consumer
-    int status_child;
-    wait(&status_child); // maybe need busy loop?
-    
+    // wait for all children to finish
+    int status_child,pid;
+    //wait(&status_child); 
+    while ((pid = wait(&status_child)) != -1) {
+    }
     // check if waiting was successful
-    if (WIFEXITED(status_child)) {
+    //if (WIFEXITED(status_child)) {
+        // stop timer as execution is finished
         double t_last_consumed = get_time();
-        
+        // output results for analysis
         printf("System execution time: %f seconds\n",
                t_last_consumed - t_before_fork);
-    } else {
-        perror("wait() failed");
-    }
+    // } else {
+    //     perror("wait() failed");
+    // }
     
+    // *****************************************
+    // final checks and cleaning up 
+    // *****************************************
+
     // close queue
     if (mq_close(qdes) == -1) {
         perror("mq_close() failed");
@@ -138,15 +173,23 @@ int main(int argc, char *argv[])
     }
     
     // remove queue
-    if (mq_unlink(qname) != 0) {
+    if (mq_unlink(qname) == -1) {
         perror("mq_unlink() failed");
         exit(3);
     }
-    
-    // TODO: sem_close, sem_unlink
+
+    if (sem_close(sem) == -1) {
+        perror("sem_close() failed");
+        exit(2);
+    }
+
+    if (sem_unlink(scname) == -1) {
+        perror("sem_unlink() failed");
+        exit(3);
+    }
+
     return 0;
 }
-
 
 /* Helper function to get time in seconds */
 double get_time() {
