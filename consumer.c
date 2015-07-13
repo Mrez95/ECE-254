@@ -15,6 +15,7 @@
 #include <mqueue.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <math.h>
 #include <semaphore.h>
 
 const char* qname = "/mailbox_t94zhang";
@@ -32,10 +33,10 @@ int main(int argc, char *argv[])
 	struct mq_attr attr; // queue attributes
 
     // unique id assigned for this consumer
-    int id = atoi(argv[2]);
+    int cid = atoi(argv[2]);
 
 	// initialize a blocking queue
-	attr.mq_maxmsg = id;
+	attr.mq_maxmsg = cid;
 	attr.mq_msgsize = sizeof(int);
 	attr.mq_flags = 0;
 
@@ -72,7 +73,7 @@ int main(int argc, char *argv[])
 		if (isReceived){
 			// find perfect square
 			if (((int)sqrt(msg) * (int)sqrt(msg)) == msg){
-				printf("%i %i %i\n", id, msg, (int)sqrt(msg));
+				printf("%i %i %i\n", cid, msg, (int)sqrt(msg));
 			}
 		}
 		else 
