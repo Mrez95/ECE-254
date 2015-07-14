@@ -34,7 +34,8 @@ int main(int argc, char *argv[])
 	struct mq_attr attr; // queue attributes
 
     // unique id assigned for this consumer
-    // argv[2] is a char pointer
+    // argv[2] is a char pointer, take its value
+    // in C int is recognized as char
     int id = *argv[2];
 
 	// initialize a blocking queue
@@ -42,36 +43,44 @@ int main(int argc, char *argv[])
 	attr.mq_msgsize = sizeof(int);
 	attr.mq_flags = 0;
 
-	// open up the queue
-	qdes = mq_open(qname, O_RDONLY, mode,
-			&attr);
+	// ********************************************
+    // open up the queue
+    // ********************************************
+	qdes = mq_open(qname, O_RDWR | O_CREAT, mode,
+                   &attr);
 
 	// check if queue was opened successfully
 	if (qdes == -1 ) {
-		perror("mq_open()");
+		perror("mq_open() in consumer");
 		exit(1);
 	}
 
-	// initialize and open up the semaphore
+	// ********************************************
+    // open up the semaphore
+    // ********************************************
+
 	sem_t *c_semaphore = sem_open(scname, 0);
 
 	if (c_semaphore == SEM_FAILED) {
-		perror("sem_open()");
+		perror("sem_open() in consumer");
 		exit(1);
 	}
 
+	// ********************************************
+    // wait for all items to be consumed
+    // ********************************************
+
 	int msg; // message to be received
 
-	// continously loop to consume until no more items to be expected
-	for(;;) {
+	while(sem_trywait(c_semaphore) != -1) { // decrement & locks the semaphore
 
 		// exit loop if and only if all callers stopped consuming
 		// ie. semaphore counter reaches 0
-		if (sem_trywait(c_semaphore) == -1) {
-			break;
-		}
 
+		// returns the number of byes in the recieved msg. 
+		// valid msg if return value > 0
 		int isReceived = mq_receive(qdes, (char*) &msg, sizeof(int), 0);
+		
 		if (isReceived){
 			// find perfect square
 			if (((int)sqrt(msg) * (int)sqrt(msg)) == msg){
@@ -80,14 +89,17 @@ int main(int argc, char *argv[])
 		}
 		else 
 		{
-			perror("mq_receive()");
+			perror("mq_receive() in consumer");
 			exit(1);
 		}
 	}
 
-	// final closures and checks
+    // *****************************************
+    // final checks and cleaning up 
+    // *****************************************
+
 	if (mq_close(qdes) == -1) {
-		perror("mq_close() failed");
+		perror("mq_close() failed in consumer");
 		exit(2);
 	}
 

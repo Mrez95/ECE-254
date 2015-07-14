@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     if (argc != 5) {
         exit(1);
     }
-    
+
     // number of integers the producer should produce
     int N = atoi(argv[1]);
     // number of integers the message queue can hold
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
     
     // check if queue was opened successfully
     if (qdes == -1 ) {
-        perror("mq_open()");
+        perror("mq_open() in process main");
         exit(1);
     }
 
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     
     // check if semaphore was opened successfully
     if (sem == SEM_FAILED ) {
-        perror("sem_open()");
+        perror("sem_open() in process main");
         exit(1);
     }
     
@@ -89,12 +89,12 @@ int main(int argc, char *argv[])
     // *******************************************
     // spawn producer processes 
     // *******************************************
+
     argv[0] = "producer";
     
     // loop to generate P producer processes 
     for (p = 0; p < P; p++){
-        
-        // properly cast int to char by pointers
+        // properly cast int to char via pointer
         // note: in C int is recognized as char
         char* producer_id = (char*)&p;
 
@@ -122,8 +122,7 @@ int main(int argc, char *argv[])
     
     // loop to generate C consumer processes 
     for (c = 0; c < C; c++){
-        
-        // properly cast int to char by pointers
+        // properly cast int to char via pointer
         // note: in C int is recognized as char
         char* consumer_id = (char*)&c;
 
@@ -146,21 +145,23 @@ int main(int argc, char *argv[])
     // output timing results and data 
     // *****************************************
     
-    // wait for all children to finish
-    int status_child,pid;
-    //wait(&status_child); 
-    while ((pid = wait(&status_child)) != -1) {
-    }
-    // check if waiting was successful
-    //if (WIFEXITED(status_child)) {
-        // stop timer as execution is finished
-        double t_last_consumed = get_time();
-        // output results for analysis
-        printf("System execution time: %f seconds\n",
+    int status_child, child_pid;
+
+    // loop infinitely until all children are depleted 
+    for(;;){ 
+        // wait for all children to finish
+        child_pid = wait(&status_child);
+
+        if (child_pid == -1) {
+            // stop timer as execution is finished
+            double t_last_consumed = get_time();
+            // output results for analysis
+            printf("System execution time: %f seconds\n",
                t_last_consumed - t_before_fork);
-    // } else {
-    //     perror("wait() failed");
-    // }
+            // break out of loop; all children finished
+            break;
+        }
+    }
     
     // *****************************************
     // final checks and cleaning up 
@@ -168,23 +169,23 @@ int main(int argc, char *argv[])
 
     // close queue
     if (mq_close(qdes) == -1) {
-        perror("mq_close() failed");
+        perror("mq_close() failed in process main");
         exit(2);
     }
     
     // remove queue
     if (mq_unlink(qname) == -1) {
-        perror("mq_unlink() failed");
+        perror("mq_unlink() failed in process main");
         exit(3);
     }
 
     if (sem_close(sem) == -1) {
-        perror("sem_close() failed");
+        perror("sem_close() failed in process main");
         exit(2);
     }
 
     if (sem_unlink(scname) == -1) {
-        perror("sem_unlink() failed");
+        perror("sem_unlink() failed in process main");
         exit(3);
     }
 
