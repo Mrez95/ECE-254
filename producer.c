@@ -1,5 +1,5 @@
 /*
- * processes_main.c
+ * producer.c
  * ECE254 Group 34
  * By: Tianyi Zhang and Kwok Yin Timothy Tong
  * University of Waterloo Computer Engineering
@@ -12,41 +12,57 @@
 
 const char* qname = "/mailbox_t94zhang";
 
-int pid, P, N;
-/*
- pid = process id assigned to producer
- P = number of producers in total
- N = number of numbers produced in a set
- */
-
 int main(int argc,  char *argv[]){
+
+    // format should be ./produce <N> <B> <P> <C>
+    // ie. early return for invalid input
     if (argc != 5) {
         exit(1);
     }
-    N = atoi(argv[1]);
-    pid = argv[2];
-    P = argv[3];
+
+    // number of numbers produced in a set
+    int N = atoi(argv[1]);
+    // number of producers in total
+    int P = atoi(argv[3]);
+    // argv[2] is a char pointer, take its value
+    int pid = *argv[2];
     
-    // From lab 4 - opens queue and creates messages
-    mqd_t qdes = mq_open(qname, O_RDWR); // Queue already created in processes_main.c
+    // ********************************************
+    // open up the queue
+    // ********************************************
+
+    mqd_t qdes = mq_open(qname, O_RDWR); 
     
     // check if queue was opened successfully
     if (qdes == -1 ) {
-        perror("mq_open()");
+        perror("mq_open() failed in producer");
         exit(1);
     }
 
+    // ********************************************
+    // make producers which statisfy condition
+    // ********************************************
+
     int i;
     for (i = 0; i < N; i++) {
-        int message = (i * P) + pid; // Requirement: message / P = pid
-        if (mq_send(qdes, (char*) &message, sizeof(int), 0) == -1) {
-            perror("mq_send() failed");
+        // Requirement: message / P = pid
+        int msg = (i * P) + pid;
+
+        int sendMsg = mq_send(qdes, (char*) &msg, sizeof(int), 0);
+        // check if mq_send() succeeded
+        if (sendMsg == -1) {
+            perror("mq_send() failed in producer");
         }
     }
     
-    // Close the queue
+    // *****************************************
+    // final checks and cleaning up 
+    // *****************************************
+
     if (mq_close(qdes) == -1) {
-        perror("mq_close() failed");
+        perror("mq_close() failed in producer");
         exit(2);
     }
+
+    return 0;
 }
