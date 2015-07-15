@@ -43,10 +43,9 @@ int main(int argc,  char *argv[]){
     // make producers which statisfy condition
     // ********************************************
 
-    int i;
-    for (i = 0; i < N; i++) {
+    int msg = pid;
+    for (msg; msg < N; msg+=P) {
         // Requirement: message / P = pid
-        int msg = (i * P) + pid;
 
         int sendMsg = mq_send(qdes, (char*) &msg, sizeof(int), 0);
         // check if mq_send() succeeded
