@@ -61,7 +61,7 @@ int main(int argc, char * argv[]){
      * returns 0 on success
      */
     
-    if(sem_init(&sem_crit_region, 0, 1) != 0 || sem_init(&sem_space_avail, 0, 1) != 0 || sem_init(&sem_item_avail, 0, 0) != 0){
+    if(sem_init(&sem_crit_region, 0, 1) != 0 || sem_init(&sem_space_avail, 0, B) != 0 || sem_init(&sem_item_avail, 0, 0) != 0){
         perror("sem_init");
     }
     
@@ -129,6 +129,7 @@ void produce(void * args){
         sem_wait(sem_crit_region);
         
         count++;
+        // Append new message to tail
         if (head == NULL) {
             head = new_node;
             tail = new_node;
@@ -151,7 +152,7 @@ void consume(void * args){
         sem_wait(sem_item_avail);
         sem_wait(sem_crit_region);
         
-        message = head->val;
+        message = head->val; // take from the head
         if (count == 1) {
             head = NULL;
             tail = NULL;
@@ -164,7 +165,7 @@ void consume(void * args){
         
         // consume.
         if (sqrt(message) == (int)(sqrt(message))) {
-            printf("%d %d %d\n\r", )
+            printf("%d %d %d\n\r", consumer_id, message, (int)(sqrt(message)));
         }
         
         sem_post(sem_crit_region);
