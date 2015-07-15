@@ -18,22 +18,28 @@
 #include <pthread.h>
 #include <semaphore.h>
 
+void produce(void * args);
+void consume(void * args);
+double get_time();
+
 struct Buffer_node {
     struct Buffer_node * next;
     int val;
 };
 
 // Global vars
-const int N, B, P, C;
+int N, B, P, C;
 int count = 0; // size of linked list
 int items_processed = 0;
-Buffer_node * head; // head of the linked list
-Buffer_node * tail; // tail of the linked list
+struct Buffer_node * head; // head of the linked list
+struct Buffer_node * tail; // tail of the linked list
 sem_t sem_crit_region,
         sem_space_avail,
         sem_item_avail;
 
 int main(int argc, char * argv[]){
+        double t_before;
+        double t_after;
     // format should be ./produce <N> <B> <P> <C>
     if (argc != 5) {
         exit(1);
@@ -54,7 +60,7 @@ int main(int argc, char * argv[]){
     }
     
     /* Initializing semaphores:
-     * sem_init(sem_t *sem, int pshared, unsigned int value);
+     * sem_open(sem_t *sem, int pshared, unsigned int value);
      * value = #threads allowed to be in crit. region
      * pshread: 0 = shared between threads of a process
      *         !0 = shared between processes
@@ -66,21 +72,21 @@ int main(int argc, char * argv[]){
     }
     
     pthread_t producers_threads[P];
-    pthread_t consumers[C];
+    pthread_t consumers_threads[C];
     
-    double t_before = get_time();
+    t_before = get_time();
     
     int p, c;
     // SPAWN PRODUCER THREADS ==> generates messages
     for (p = 0; p < P; p++) {
         argv[2] = p;
-        pthread_create(producers[p], NULL, &produce, argv);
+        pthread_create(producers_threads[p], NULL, &produce, argv);
     }
     
     // SPAWN CONSUMER THREADS ==> consumes messages
     for (c = 0; c < P; c++) {
         argv[2] = c;
-        pthread_create(consumers[p], NULL, &consume, argv);
+        pthread_create(consumers_threads[p], NULL, &consume, argv);
     }
     
     
@@ -88,20 +94,21 @@ int main(int argc, char * argv[]){
     int p_j, c_j;
     // Join all producer threads
     for (p_j = 0; p_j < P; p_j++) {
-        pthread_join(producers[p_j], NULL);
+        pthread_join(producers_threads[p_j], NULL);
     }
     
     // Join all consumer threads
     for (c_j = 0; c_j < C; c_j++) {
-        pthread_join(consumers[c_j], NULL);
+        pthread_join(consumers_threads[c_j], NULL);
     }
     
-    double t_after = get_time();
+
+    t_after = get_time();
     
     printf("System execution time: %f seconds\n",
            t_after - t_before);
     
-    if(sem_destroy(&sem_buffer) != 0){
+    if(sem_destroy(&sem_crit_region) != 0 || sem_destroy(&sem_space_avail) != 0 || sem_destroy(&sem_item_avail) != 0){
         perror("sem_destroy");
     }
     return 0;
