@@ -17,9 +17,10 @@
 #include <time.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <math.h>
 
-void produce(void * args);
-void consume(void * args);
+void * produce(char * args);
+void * consume(char * args);
 double get_time();
 
 struct Buffer_node {
@@ -79,14 +80,14 @@ int main(int argc, char * argv[]){
     int p, c;
     // SPAWN PRODUCER THREADS ==> generates messages
     for (p = 0; p < P; p++) {
-        argv[2] = p;
-        pthread_create(producers_threads[p], NULL, &produce, argv);
+        argv[2] = (char *)&p;
+        pthread_create(&producers_threads[p], NULL, &produce, argv);
     }
     
     // SPAWN CONSUMER THREADS ==> consumes messages
     for (c = 0; c < P; c++) {
-        argv[2] = c;
-        pthread_create(consumers_threads[p], NULL, &consume, argv);
+        argv[2] = (char *)&c;
+        pthread_create(&consumers_threads[p], NULL, &consume, argv);
     }
     
     
@@ -121,19 +122,20 @@ double get_time() {
     return (tv.tv_sec + tv.tv_usec / 1000000.0);
 }
 
-void produce(void * args){
+void * produce(char * args){
     printf("produce\r\n");
-    int producer_id = atoi(args[2]);
-    for (int i = 0; i < N / P; i++) {
+    int producer_id = args[2];
+    int i; 
+    for (i = 0; i < N / P; i++) {
         
         int message = producer_id + P * i;
         struct Buffer_node * new_node = malloc(sizeof(struct Buffer_node));
         new_node->next = NULL;
         new_node->val = message;
         
-        sem_wait(sem_space_avail);
+        sem_wait(&sem_space_avail);
         
-        sem_wait(sem_crit_region);
+        sem_wait(&sem_crit_region);
         
         count++;
         // Append new message to tail
@@ -145,26 +147,26 @@ void produce(void * args){
             tail = new_node;
         }
         
-        sem_post(sem_crit_region);
+        sem_post(&sem_crit_region);
         
-        sem_post(sem_item_avail);
+        sem_post(&sem_item_avail);
     }
 }
 
-void consume(void * args){
+void * consume(char * args){
     printf("consume\r\n");
     int message;
-    int consumer_id = atoi(args[2]);
+    int consumer_id = args[2];
     while (items_processed < N) {
-        sem_wait(sem_item_avail);
-        sem_wait(sem_crit_region);
+        sem_wait(&sem_item_avail);
+        sem_wait(&sem_crit_region);
         
         message = head->val; // take from the head
         if (count == 1) {
             head = NULL;
             tail = NULL;
         } else {
-            struct * tmp = head;
+            struct Buffer_node * tmp = head;
             head = head->next;
             tmp = NULL;
         }
@@ -175,7 +177,7 @@ void consume(void * args){
             printf("%d %d %d\n\r", consumer_id, message, (int)(sqrt(message)));
         }
         
-        sem_post(sem_crit_region);
-        sem_post(sem_space_avail);
+        sem_post(&sem_crit_region);
+        sem_post(&sem_space_avail);
     }
 }
