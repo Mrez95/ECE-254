@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/time.h>
 #include <time.h>
 #include <semaphore.h>
 #include <mqueue.h>
@@ -35,13 +33,16 @@ int items_produced = 0;
 int items_consumed = 0;
 struct Buffer_node * head; // head of the linked list
 struct Buffer_node * tail; // tail of the linked list
+
 sem_t *sem_crit_region,
 *sem_space_avail,
-*sem_item_avail;
+*sem_item_avail,
+*sem_items_processed;
 
 char * sem_crit_reg_name = "sem_crit";
 char * sem_space_avail_name = "sem_space";
 char * sem_item_avail_name = "sem_item";
+char * sem_items_processed_name = "sem_items_processed";
 
 int main(int argc, char * argv[]){
     double t_before;
@@ -70,8 +71,9 @@ int main(int argc, char * argv[]){
     sem_crit_region = sem_open(sem_crit_reg_name, O_RDWR | O_CREAT, mode, 1);
     sem_space_avail = sem_open(sem_space_avail_name, O_RDWR | O_CREAT, mode, B);
     sem_item_avail = sem_open(sem_item_avail_name, O_RDWR | O_CREAT, mode, 0);
+    sem_items_processed = sem_open(sem_items_processed_name, O_RDWR | O_CREAT, mode, N);
     
-    if(sem_item_avail == SEM_FAILED || sem_space_avail == SEM_FAILED || sem_crit_region == SEM_FAILED){
+    if(sem_item_avail == SEM_FAILED || sem_space_avail == SEM_FAILED || sem_crit_region == SEM_FAILED || sem_items_processed == SEM_FAILED){
         perror("sem_open");
     }
     
@@ -86,7 +88,8 @@ int main(int argc, char * argv[]){
         int * producer_id = malloc(sizeof(int));
         *producer_id = p;
         //printf("Spawning producer with id %d \n\r", *producer_id);
-        pthread_create(&producers_threads[p], NULL, produce, producer_id);
+	//int producer_id = p;
+        pthread_create(&(producers_threads[p]), NULL, produce, producer_id);
     }
     
     // SPAWN CONSUMER THREADS ==> consumes messages
@@ -94,7 +97,8 @@ int main(int argc, char * argv[]){
         int * consumer_id = malloc(sizeof(int));
         *consumer_id = c;
         //printf("Spawning consumer with id %d \n\r", *consumer_id);
-        pthread_create(&consumers_threads[c], NULL, consume, consumer_id);
+	//int consumer_id = c;
+        pthread_create(&(consumers_threads[c]), NULL, consume, consumer_id);
     }
 
     int p_j, c_j;
@@ -108,16 +112,15 @@ int main(int argc, char * argv[]){
         pthread_join(consumers_threads[c_j], NULL);
     }
     
-    
     t_after = get_time();
     
     printf("System execution time: %f seconds\n",
            t_after - t_before);
     
-    if(sem_close(sem_crit_region) != 0 || sem_close(sem_space_avail) != 0 || sem_close(sem_item_avail) != 0){
+    if(sem_close(sem_crit_region) != 0 || sem_close(sem_space_avail) != 0 || sem_close(sem_item_avail) != 0 || sem_close(sem_items_processed) != 0){
         perror("sem_close");
     }
-    if (sem_unlink(sem_crit_reg_name) != 0 || sem_unlink(sem_space_avail_name) != 0 || sem_unlink(sem_item_avail_name) != 0) {
+    if (sem_unlink(sem_crit_reg_name) != 0 || sem_unlink(sem_space_avail_name) != 0 || sem_unlink(sem_item_avail_name) != 0 || sem_unlink(sem_items_processed_name) != 0) {
 	perror("sem_unlink");
     }
     return 0;
@@ -143,7 +146,6 @@ void *produce(void *id){
         sem_wait(sem_space_avail);
         
         sem_wait(sem_crit_region);
-        //printf("Producer %d appending %d\n\r", producer_id, message);
         count++;
         // Append new message to tail
         if (head == NULL) {
@@ -154,21 +156,19 @@ void *produce(void *id){
             tail = new_node;
         }
         items_produced++;
-        //printf(" .... Items produced: %d\n\r ", items_produced);
-        //printBuffer();
         sem_post(sem_crit_region);
         
         sem_post(sem_item_avail);
     }
     
-    //printf("Producer %d exited\n\r", producer_id);
 }
 
 void *consume(void *id){
     int consumer_id = *((int *)id);
     int message;
-    while (items_consumed < N) {
-        sem_trywait(sem_item_avail);
+    while (1) {
+	if(sem_trywait(sem_items_processed) != 0){break;}
+        sem_wait(sem_item_avail);
         sem_wait(sem_crit_region);
 	if(head != NULL){
             message = head->val; // take from the head
@@ -188,7 +188,6 @@ void *consume(void *id){
             if (sqrt(message) == (int)(sqrt(message))) {
                 printf("%d %d %d\n\r", consumer_id, message, (int)(sqrt(message)));
             }
-            //printBuffer();
 	}
         sem_post(sem_crit_region);
         sem_post(sem_space_avail);
