@@ -36,13 +36,11 @@ struct Buffer_node * tail; // tail of the linked list
 
 sem_t *sem_crit_region,
 *sem_space_avail,
-*sem_item_avail,
-*sem_items_processed;
+*sem_item_avail;
 
 char * sem_crit_reg_name = "sem_crit";
 char * sem_space_avail_name = "sem_space";
 char * sem_item_avail_name = "sem_item";
-char * sem_items_processed_name = "sem_items_processed";
 
 int main(int argc, char * argv[]){
     double t_before;
@@ -71,9 +69,8 @@ int main(int argc, char * argv[]){
     sem_crit_region = sem_open(sem_crit_reg_name, O_RDWR | O_CREAT, mode, 1);
     sem_space_avail = sem_open(sem_space_avail_name, O_RDWR | O_CREAT, mode, B);
     sem_item_avail = sem_open(sem_item_avail_name, O_RDWR | O_CREAT, mode, 0);
-    sem_items_processed = sem_open(sem_items_processed_name, O_RDWR | O_CREAT, mode, N);
     
-    if(sem_item_avail == SEM_FAILED || sem_space_avail == SEM_FAILED || sem_crit_region == SEM_FAILED || sem_items_processed == SEM_FAILED){
+    if(sem_item_avail == SEM_FAILED || sem_space_avail == SEM_FAILED || sem_crit_region == SEM_FAILED){
         perror("sem_open");
     }
     
@@ -87,8 +84,6 @@ int main(int argc, char * argv[]){
     for (p = 0; p < P; p++) {
         int * producer_id = malloc(sizeof(int));
         *producer_id = p;
-        //printf("Spawning producer with id %d \n\r", *producer_id);
-	//int producer_id = p;
         pthread_create(&(producers_threads[p]), NULL, produce, producer_id);
     }
     
@@ -96,8 +91,6 @@ int main(int argc, char * argv[]){
     for (c = 0; c < C; c++) {
         int * consumer_id = malloc(sizeof(int));
         *consumer_id = c;
-        //printf("Spawning consumer with id %d \n\r", *consumer_id);
-	//int consumer_id = c;
         pthread_create(&(consumers_threads[c]), NULL, consume, consumer_id);
     }
 
@@ -113,14 +106,14 @@ int main(int argc, char * argv[]){
     }
     
     t_after = get_time();
-    
     printf("System execution time: %f seconds\n",
            t_after - t_before);
     
-    if(sem_close(sem_crit_region) != 0 || sem_close(sem_space_avail) != 0 || sem_close(sem_item_avail) != 0 || sem_close(sem_items_processed) != 0){
+    
+    if(sem_close(sem_crit_region) != 0 || sem_close(sem_space_avail) != 0 || sem_close(sem_item_avail) != 0){
         perror("sem_close");
     }
-    if (sem_unlink(sem_crit_reg_name) != 0 || sem_unlink(sem_space_avail_name) != 0 || sem_unlink(sem_item_avail_name) != 0 || sem_unlink(sem_items_processed_name) != 0) {
+    if (sem_unlink(sem_crit_reg_name) != 0 || sem_unlink(sem_space_avail_name) != 0 || sem_unlink(sem_item_avail_name) != 0) {
 	perror("sem_unlink");
     }
     return 0;
@@ -137,7 +130,6 @@ void *produce(void *id){
     int producer_id = *((int *)id);
     int i;
     for (i = producer_id; i < N && items_produced < N; i += P) {
-        
         int message = i;
         struct Buffer_node * new_node = malloc(sizeof(struct Buffer_node));
         new_node->next = NULL;
@@ -160,15 +152,13 @@ void *produce(void *id){
         
         sem_post(sem_item_avail);
     }
-    
 }
 
 void *consume(void *id){
     int consumer_id = *((int *)id);
     int message;
-    while (1) {
-	if(sem_trywait(sem_items_processed) != 0){break;}
-        sem_wait(sem_item_avail);
+    while (items_consumed < N) {
+        sem_trywait(sem_item_avail);
         sem_wait(sem_crit_region);
 	if(head != NULL){
             message = head->val; // take from the head
@@ -193,15 +183,5 @@ void *consume(void *id){
         sem_post(sem_space_avail);
     }
     //printf("Consumer %d exited\n\r", consumer_id);
-}
-
-void printBuffer(){
-    printf("\n **** ");
-    struct Buffer_node *tmp = head;
-    while (tmp != NULL) {
-        printf("[%d] - ", tmp->val);
-        tmp = tmp->next;
-    }
-    printf("[x], COUNT %d\n\r", count);
 }
 
